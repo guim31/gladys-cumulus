@@ -31,15 +31,20 @@ pushing.
 ## Architecture
 
 ```
-index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
+index.js                          SDK wiring only (src/app.js registers the handlers)
+src/app.js                        handlers: discovery, action, scene action, widget, config
+src/hub.js                        source timer, latest reading, throttled states, scene events, clock
+src/devices.js                    the station device: features (keys are forever) and states
+src/triggers.js                   rain episodes, dry spells, gust thresholds, silences
 src/scenes.js                     scene action handlers (manifest `scene_actions`)
-src/widgets.js                    dashboard widget handlers (manifest `widgets`)
+src/widgets.js                    dashboard widget handler (manifest `widgets`)
+src/i18n.js                       every text, en/fr/de/es
 src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
+src/cumulus/units.js              unit texts of Cumulus / Weather Display -> °C, km/h, hPa, mm
+src/cumulus/parse.js              tag API JSON / realtime.txt / clientraw.txt -> reading
+src/cumulus/source.js             HTTP reader (API address, basic auth, size cap)
 gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
+docs/en.md, fr.md, de.md, es.md   user documentation, re-hosted by Gladys (mandatory)
 test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
@@ -70,8 +75,9 @@ test/                             node --test, against the SDK's fake Gladys (in
   `type: "provider"`: 5.1.0). `test/manifest.test.js` ties the manifest to the
   code (defaults, action, scene and widget handlers): change both sides
   together.
-- **User-facing text** is bilingual (English and French): action messages,
-  manifest texts, and `docs/en.md` / `docs/fr.md`, kept in sync.
+- **User-facing text** exists in English, French, German and Spanish: action
+  messages, manifest texts, widget texts, feature names, and the four docs
+  `docs/{en,fr,de,es}.md`, kept in sync (`test/i18n.test.js`).
 - **Style.** Prettier formats, ESLint catches mistakes. Comments explain why,
   in English. Tests never touch the network.
 
@@ -251,3 +257,32 @@ long, et sur un « Sie »/« Ihr… » de politesse en allemand. Le store exige 
 - Docs `en`, `fr`, `de`, `es` avec les mêmes sections.
 - Chauffe, ouverture, sécurité : ne rien rendre pilotable « comme un thermostat » ou par un assistant
   vocal quand une erreur serait dangereuse (leçon d'OctoPrint).
+
+## Cumulus & Weather Display (propre à cette intégration)
+
+Lu dans le code source de Cumulus MX (dépôt `cumulusmx/CumulusMX`, novembre 2026, build 5026) ;
+lancer Cumulus MX (station Simulator, type 17) en Docker a été refusé par le mode auto de la session
+du 15/11 : rien n'a été vérifié contre un Cumulus MX en marche.
+
+- **API de tags** : `GET /api/tags/process.json?rc&temp&hum…` sur le port de l'interface (8998).
+  `rc` doit être **le premier** paramètre (`ApiTagProcessor`), sans `=y`. Réponse : objet de
+  chaînes **non échappées** (une `"` dans le nom de la station casse `JSON.parse` : lecture tolérante
+  dans `parseTagJson`, `location` demandé en dernier). 503 tant que la station n'est pas démarrée.
+  Aucune date de mesure : la réponse est datée à l'arrivée ; `DataStopped=1` dit que la station
+  n'envoie plus rien (valeurs alors ignorées). `/api/data/currentdata` (tableau de bord) existe
+  aussi, mais c'est un format interne, sans unité de date : écarté.
+- Unités : `tempunitnodeg` (`C`/`F`), `windunit` (`m/s`, `mph`, `km/h`, `kts`), `pressunit`
+  (`mb`, `hPa`, `in`, `kPa`), `rainunit` (`mm`, `in`). `presstrendval` est une variation **par
+  heure** sur 3 h : publiée × 3. `rfall` part de l'heure de bascule de Cumulus (minuit ou 9 h).
+- **realtime.txt** : date `dd/mm/yy` dont le séparateur suit la locale Windows, heure locale ; champs
+  23/24 (intérieur), 44 (UV) et 46 (solaire) valent **0** quand le capteur manque (`?? 0`), d'où
+  `maybeAbsent` : un 0 n'y crée pas de fonctionnalité. Champ 51 = perte de contact capteurs (l'exemple
+  du wiki l'a à 1) : station injoignable, valeurs gardées.
+- **clientraw.txt** : unités fixes (nœuds, °C, hPa, mm, intensité en **mm/min**, × 60). Heure
+  29-31, jour 35, mois 36, année 141 ; nom en 32 suivi de `-heure` ; version en dernier champ
+  (`!!C10.37S153!!`). Pas de ressenti ni de tendance fiables : non lus.
+- Un fichier n'apporte une nouvelle mesure que si sa date change ; la date du premier fichier lu
+  sert d'âge s'il est crédible (≤ 7 jours, ≤ 5 min dans le futur). Injoignable après 15 min sans
+  nouvelle mesure.
+- Faux Gladys du SDK : l'ack d'une action enveloppe le retour dans `data.message`, celui d'une action
+  de scène dans `data.outputs`, un événement de scène est `{ key, data }`.

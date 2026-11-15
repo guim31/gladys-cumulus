@@ -30,6 +30,20 @@ Gladys before reporting a problem.
 
 In scope: the code of this repository and the Docker image it publishes.
 
+What the integration handles:
+
+- **Secrets**: the integration has no secret field. A user name and password
+  written in the source address (basic authentication of a web server) are
+  kept by Gladys, sent only to that server, and never written to the logs
+  (addresses are logged without credentials nor query string).
+- **Storage**: nothing is written to `/data`; the latest measurement only
+  lives in memory.
+- **Network**: outgoing HTTP requests only, on the local network, to Cumulus
+  MX or to the web server of the weather file the user configured. No cloud
+  service, no listening port. The answers are parsed as untrusted input
+  (capped at 256 KB, unknown units and values dropped).
+
 Out of scope: Gladys Assistant itself (see its
 [security policy](https://github.com/GladysAssistant/Gladys/security/policy)),
-and the third-party services and devices the integration talks to.
+Cumulus, Weather Display, the web server serving their files and the
+weather station.

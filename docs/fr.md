@@ -1,67 +1,183 @@
-# Template de démonstration
+# Cumulus & Weather Display
 
-Ceci est la documentation utilisateur de l'intégration. Gladys ré-héberge ce
-fichier et affiche un lien **Documentation** permanent vers lui dans l'écran
-de configuration (dans la langue de l'utilisateur, avec l'anglais en repli) —
-c'est au moment de configurer que l'utilisateur en a le plus besoin. Gardez
-les courtes indications d'accueil dans les blocs `section` du `config_schema`
-du manifest ; mettez ici le pas-à-pas détaillé (captures d'écran, dépannage…).
+Amène votre station météo dans Gladys via **Cumulus MX** (ou Cumulus 1) ou **Weather Display**,
+quelle que soit sa marque (Davis, Ecowitt, Fine Offset, Oregon Scientific, La Crosse…) :
+température, humidité, pression et sa tendance, vent, pluie, UV, rayonnement solaire et plus, tels
+que le logiciel les mesure.
 
-## Ce que vous obtenez
+> Développée sans le matériel : vos retours sont les bienvenus. L'intégration suit le code source
+> de Cumulus MX, la documentation de realtime.txt du wiki Cumulus et un vrai clientraw.txt d'une
+> station Weather Display en ligne, mais elle n'a pas encore été essayée avec un vrai Cumulus MX.
+> Vos retours sont les bienvenus sur le dépôt GitHub.
 
-Six appareils de démonstration apparaissent après l'installation : une
-station météo (vraies données Open-Meteo), un interrupteur, une lampe
-variable, une prise connectée avec mesure de puissance, un détecteur de
-mouvement et une caméra.
+Cette intégration n'est affiliée ni à Cumulus (Sandaysoft) ni à Weather Display.
+
+## Présentation
+
+L'intégration lit l'une de trois sources, sur votre réseau local :
+
+- **Cumulus MX (API)** : l'interface de Cumulus MX, sur le port 8998, en direct. Recommandé avec
+  Cumulus MX.
+- **realtime.txt** : le fichier d'une ligne que Cumulus 1 et Cumulus MX écrivent à leur intervalle
+  temps réel, servi par un serveur web.
+- **clientraw.txt** : le fichier d'une ligne qu'écrit Weather Display, servi par un serveur web.
+
+Vous obtenez un appareil Gladys pour la station, quatre déclencheurs de scène, une action de scène
+et un widget de tableau de bord. Tout est en lecture seule et reste sur votre réseau local : ni
+compte, ni cloud.
+
+Les unités sont lues dans la source (°F, mph, nœuds, inHg, pouces…) : Gladys reçoit des °C, km/h,
+hPa et mm, et les convertit selon vos préférences quand il le peut.
+
+## Prérequis
+
+- Gladys 5.1 ou plus récent.
+- Cumulus MX, Cumulus 1 ou Weather Display, joignable par le réseau depuis Gladys.
+
+### Cumulus MX
+
+Rien à installer : l'interface de Cumulus MX (`http://adresse:8998`) répond déjà. Sa station doit
+être démarrée. Gladys fait tourner l'intégration dans un conteneur : `localhost` désigne le
+conteneur lui-même, utilisez l'adresse de la machine où tourne Cumulus MX.
+
+### realtime.txt
+
+Dans Cumulus, activez le fichier temps réel (**Internet settings → Interval settings → Real time**,
+puis le fichier realtime.txt dans la liste des fichiers temps réel) et faites-le copier dans un
+dossier servi par un serveur web. Ouvrez d'abord son adresse dans un navigateur : vous devez voir
+une ligne de nombres.
+
+### clientraw.txt
+
+Dans Weather Display, activez la création de clientraw.txt (fichiers web personnalisés) et
+faites-le servir par un serveur web. Ouvrez d'abord son adresse dans un navigateur : la ligne
+commence par `12345`.
 
 ## Configuration
 
-1. Ouvrez l'onglet **Configuration** de l'intégration.
-2. Renseignez la **latitude** et la **longitude** que la station météo de
-   démonstration doit observer (Paris par défaut), et choisissez votre unité
-   de température. L'**intervalle de rafraîchissement** règle la fréquence
-   de lecture de la station météo et de la puissance de la prise : toutes
-   les 5 minutes par défaut, toutes les minutes au plus.
-3. Enregistrez : les appareils apparaissent dans l'onglet **Découverte**,
-   prêts à être ajoutés.
+Dans Gladys, ouvrez **Intégrations → Cumulus & Weather Display → Configuration** :
 
-Le réglage **Préférer la connexion locale** pilote la prise de
-démonstration : elle affiche en badge le canal réellement utilisé (local ou
-cloud), avec un point orange quand elle fonctionne en mode dégradé (local
-refusé, bascule cloud).
+| Champ                     | Ce qu'il faut saisir                                                                               |
+| ------------------------- | -------------------------------------------------------------------------------------------------- |
+| Source                    | Cumulus MX (API), fichier realtime.txt (Cumulus) ou fichier clientraw.txt (Weather Display).       |
+| Adresse                   | Cumulus MX : `http://adresse:8998`. Un fichier : son adresse complète. `utilisateur:mdp@` accepté. |
+| Intervalle de lecture (s) | 30 par défaut, 10 au minimum.                                                                      |
+| Langue des textes         | Noms des fonctionnalités (fixés à l'ajout de la station), phrase de scène et messages des actions. |
 
-## Actions
+Enregistrez, puis cliquez sur **Vérifier la source** : le bouton indique si la source répond, quel
+logiciel et quelle version, et combien de valeurs elle a données. Ouvrez ensuite l'onglet
+**Découverte** et ajoutez la station.
 
-- **Tester le fournisseur météo** — effectue une requête en direct vers
-  Open-Meteo et affiche la température et l'humidité actuelles sous le
-  bouton.
-- **Identifier un appareil** — choisissez un de vos appareils dans la liste
-  et il se signale (la lampe de démonstration « clignote » dans les logs).
+## L'appareil station
 
-## Scènes
+La station n'a que les fonctionnalités qu'elle mesure. Les deux fichiers texte écrivent 0 pour un
+capteur absent : intérieur, UV et rayonnement solaire n'apparaissent qu'après une valeur non nulle.
+Un capteur ajouté plus tard apparaît dans l'onglet Découverte, qui propose alors de mettre à jour
+l'appareil.
 
-L'intégration ajoute ses propres cartes à l'éditeur de scènes (Gladys 5.1
-ou plus récent), dans la catégorie **Intégrations** :
+| Fonctionnalité              | Unité   | Tag Cumulus MX / champ realtime.txt / champ clientraw.txt |
+| --------------------------- | ------- | --------------------------------------------------------- |
+| Température                 | °C      | `temp` / 3 / 4                                            |
+| Ressenti                    | °C      | `feelslike` / 59 / —                                      |
+| Point de rosée              | °C      | `dew` / 5 / 72                                            |
+| Humidité                    | %       | `hum` / 4 / 5                                             |
+| Température intérieure      | °C      | `intemp` / 23 / 12                                        |
+| Humidité intérieure         | %       | `inhum` / 24 / 13                                         |
+| Pression (niveau de la mer) | hPa     | `press` / 11 / 6                                          |
+| Tendance de pression (3 h)  | hPa     | `presstrendval` × 3 / 19 × 3 / —                          |
+| Vent moyen / Rafales        | km/h    | `wspeed`, `wgust` / 6, 41 / 1, 2                          |
+| Direction du vent           | °       | `avgbearing` / 47 / 3                                     |
+| Intensité de pluie          | mm/h    | `rrate` / 9 / 10 × 60                                     |
+| Pluie du jour               | mm      | `rfall` / 10 / 7                                          |
+| Il pleut                    | oui/non | `IsRaining`, ou une intensité de pluie non nulle          |
+| Indice UV                   |         | `UV` / 44 / 79                                            |
+| Rayonnement solaire (W/m²)  |         | `SolarRad` / 46 / 127                                     |
+| Batterie faible             | oui/non | `LowBatteryList` non vide (Cumulus MX seulement)          |
+| Station joignable           | oui/non | la source répond et une nouvelle mesure depuis 15 minutes |
+| Dernière mesure             | min     | minutes depuis la dernière nouvelle mesure                |
 
-- **Mouvement détecté** (déclencheur) — lance la scène quand un détecteur
-  de démonstration voit bouger quelque chose. Choisissez éventuellement le
-  détecteur et ce qui a bougé (personne, animal) ; laissés vides, toute
-  détection correspond. Les actions suivantes peuvent lire ce qui a bougé
-  avec `{{triggerEvent.data.target}}`.
-- **Identifier un appareil** (action) — fait se signaler l'appareil choisi.
-  Elle indique si l'appareil a pu se signaler, pour que les actions
-  suivantes puissent en dépendre.
+La **Pluie du jour** est celle du logiciel : depuis son heure de bascule (minuit ou 9 h dans
+Cumulus). **Station joignable** passe à non quand la source ne répond pas, quand Cumulus MX indique
+que sa station n'envoie plus de données, quand realtime.txt signale la perte de contact avec les
+capteurs, ou après 15 minutes sans nouvelle mesure. **Dernière mesure** compte selon l'horloge de
+Gladys.
 
-## Tableau de bord
+## Widget
 
-Ajoutez le widget **État de la démo** à un tableau de bord : il affiche en
-direct la température de la station météo et la puissance de la prise du
-bureau, la connexion utilisée par la prise (en orange si dégradée) et la
-position observée. Son bouton **Identifier la lampe** fait se signaler la
-lampe de démonstration.
+**Station météo** affiche les conditions actuelles : des tuiles en direct (température, humidité,
+vent, pluie du jour, pression, celles que la station mesure), puis le ressenti, le vent avec sa
+direction et ses rafales, la pluie, l'indice UV, la console intérieure et une batterie faible, et
+depuis quand la dernière mesure est arrivée. Les valeurs suivent votre préférence métrique ou
+impériale. Le réglage **Afficher le détail** masque la liste sous les tuiles.
+
+## Déclencheurs de scène
+
+- **Il commence à pleuvoir** : la station mesure de la pluie après au moins 30 minutes sans. Une
+  fois par épisode de pluie, quelles que soient les averses entre-temps. Variable : nom de la
+  station.
+- **La pluie s'arrête** : plus de pluie depuis la durée choisie (15, 30, 60 ou 120 minutes), après de
+  la pluie. Une fois par accalmie. Variables : pluie du jour (mm), nom de la station.
+- **Rafale de vent forte** : une rafale au-delà de la vitesse choisie (30 à 120 km/h), la première
+  depuis 30 minutes. Variables : rafale (km/h), nom de la station.
+- **Station muette** : aucune nouvelle mesure depuis la durée choisie (5 à 120 minutes) : le
+  logiciel, la station ou le réseau est en panne. Une fois par silence. Variables : minutes sans
+  mesure, nom de la station.
+
+Après un redémarrage de l'intégration, la première mesure sert de référence : une pluie déjà en
+cours ou un vent déjà fort ne déclenche rien.
+
+## Action de scène
+
+**Conditions actuelles** renvoie les dernières mesures en une phrase prête pour un message — par
+exemple `12,4 °C, ressenti 10 °C, humidité 81 %, vent SO 15 km/h, rafales 32 km/h.` — et en
+valeurs : température, humidité, vent moyen, rafales, pluie du jour, il pleut, minutes depuis la
+mesure. La phrase suit la langue de la configuration.
+
+## Exemples de scènes
+
+- _Message du matin_ : à 7 h, **Conditions actuelles**, puis envoyer un message
+  `Météo à la maison : {{summary}}`.
+- _Rentrer le store_ : **Rafale de vent forte** au-delà de 50 km/h → fermer le store et envoyer un
+  message avec la rafale.
+- _Linge dehors_ : **Il commence à pleuvoir** → envoyer un message « rentre le linge ».
+- _Arrosage_ : **La pluie s'arrête** depuis 120 minutes, avec la condition « Pluie du jour inférieure
+  à 2 mm » → lancer l'arrosage.
+- _Surveillance de la station_ : **Station muette** depuis 60 minutes → envoyer un message.
+
+## Rafraîchissement et données
+
+- La source est lue à l'intervalle choisi par l'intégration elle-même. Les états partent vers
+  Gladys au plus toutes les 15 secondes, et seulement ceux qui ont changé. Les déclencheurs voient
+  chaque nouvelle mesure.
+- Cumulus MX répond en direct ; les fichiers ne changent que lorsque le logiciel les réécrit (son
+  intervalle temps réel) : les lire plus souvent ne sert à rien.
+- Une valeur qui ne change pas est renvoyée toutes les 6 heures, pour que Gladys ne l'affiche jamais
+  comme périmée.
+- Rien ne sort de votre réseau local.
 
 ## Dépannage
 
-L'intégration journalise tout ce qu'elle fait : consultez les logs de
-l'intégration depuis l'interface Gladys (ou `docker logs` sur l'hôte) avec
-`LOG_LEVEL=debug` pour le détail complet.
+- **Pas de station dans l'onglet Découverte** : rien n'a encore été lu. Cliquez sur **Vérifier la
+  source**.
+- **« Cumulus MX ne répond pas »** : adresse ou port erronés, Cumulus MX arrêté, ou sa station pas
+  encore démarrée (Cumulus MX répond alors 503). N'utilisez pas `localhost`.
+- **« Cette adresse ne répond pas comme Cumulus MX »** : l'adresse désigne un autre logiciel, ou la
+  source choisie n'est pas la bonne.
+- **« Le fichier n'est pas un realtime.txt de Cumulus »** (ou clientraw.txt) : l'adresse affiche une
+  page web, une page d'erreur ou un autre fichier. Ouvrez-la dans un navigateur.
+- **Station joignable reste à non avec un fichier** : le fichier n'est plus réécrit (vérifiez
+  l'envoi temps réel du logiciel), ou sa date a plus de 15 minutes.
+- **Station muette se déclenche trop souvent avec un fichier** : le fichier n'est réécrit qu'à
+  l'intervalle temps réel du logiciel ; choisissez une durée plus longue.
+- **Journaux** : réglez `LOG_LEVEL=debug` sur le conteneur pour le détail de chaque cycle.
+
+## Limites
+
+- Une source, donc une station, par intégration.
+- Les capteurs supplémentaires (températures supplémentaires, sol, feuille, foudre, qualité de
+  l'air…) ne sont pas encore lus.
+- realtime.txt et clientraw.txt ne portent pas l'état des batteries ; clientraw.txt n'a ni ressenti
+  ni tendance de pression.
+- Les dates des fichiers sont lues dans le fuseau horaire de Gladys : le logiciel doit tourner dans
+  le même.
+- Développée sans le matériel ni un Cumulus MX en fonctionnement.
