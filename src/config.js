@@ -1,45 +1,77 @@
 // -----------------------------------------------------------------------------
-// Integration configuration.
+// Integration configuration: defaults (they mirror the `default` values of the
+// manifest `config_schema`, see test/manifest.test.js) and normalization, so
+// the rest of the code never deals with blanks, strings or `undefined`.
 //
-// The configuration is filled in by the user in Gladys, from the `config_schema`
-// declared in `gladys-assistant-integration.json`. The SDK fetches it for you
-// (`gladys.getConfig()`) and notifies you of every change through
-// `gladys.onConfigUpdated()`.
-//
-// This module only provides defaults and normalizes the received object, so the
-// rest of the code never has to deal with `undefined`.
+// One source, read over HTTP: the tag API of Cumulus MX, a realtime.txt file
+// (Cumulus 1 or MX) or a clientraw.txt file (Weather Display).
 // -----------------------------------------------------------------------------
 
-// Defaults: they MUST stay consistent with the `default` values declared in the
-// `config_schema` of the manifest.
+import { SOURCES } from './cumulus/parse.js';
+
+export const LANGUAGES = ['en', 'fr', 'de', 'es'];
+
+export const INTERVAL_MIN_S = 10;
+export const INTERVAL_MAX_S = 3600;
+
 export const DEFAULT_CONFIG = {
-  latitude: 48.8566, // Paris
-  longitude: 2.3522,
-  unit: 'celsius', // 'celsius' | 'fahrenheit'
-  // Seconds between two reads of the polled sensors. Gladys polls at most once
-  // a minute: slower intervals are applied by skipping polls (see
-  // createPoller in src/devices/index.js).
-  poll_frequency: 300,
-  // Reserved key (NOT in config_schema): because the manifest declares both
-  // 'local' and 'cloud' in its `transports` field, Gladys shows a standard
-  // "Prefer the local connection" toggle and sends the user's choice here.
-  // Read-only for the integration; defaults to true.
-  GLADYS_PREFER_LOCAL: true,
+  source: SOURCES.CUMULUS_MX,
+  url: '',
+  interval: 30,
+  language: 'fr',
 };
 
+const text = (value) => (typeof value === 'string' ? value.trim() : '');
+
 /**
- * Merge the user config with the defaults.
- * @param {Record<string, unknown>} raw config returned by the SDK
+ * The address of the source: http(s) only. A bare `192.0.2.10:8998` gets
+ * its scheme.
+ * @returns {string} '' when absent or not an http(s) URL
+ */
+export function normalizeUrl(value) {
+  const raw = text(value);
+  if (raw === '') {
+    return '';
+  }
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `http://${raw}`;
+  try {
+    const url = new URL(withScheme);
+    return ['http:', 'https:'].includes(url.protocol) && url.hostname ? withScheme : '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * @param {object} [raw] the values received from Gladys
  */
 export function normalizeConfig(raw = {}) {
+  const source = raw ?? {};
+  // A blank field is no value (Number('') is 0).
+  const interval =
+    source.interval === '' || source.interval === null ? NaN : Number(source.interval);
   return {
-    ...DEFAULT_CONFIG,
-    ...raw,
-    // Force the types: config may arrive as strings from a form.
-    latitude: Number(raw.latitude ?? DEFAULT_CONFIG.latitude),
-    longitude: Number(raw.longitude ?? DEFAULT_CONFIG.longitude),
-    poll_frequency: Number(raw.poll_frequency ?? DEFAULT_CONFIG.poll_frequency),
-    // The preference is a boolean; anything but an explicit false means true.
-    GLADYS_PREFER_LOCAL: raw.GLADYS_PREFER_LOCAL !== false,
+    source: Object.values(SOURCES).includes(source.source) ? source.source : DEFAULT_CONFIG.source,
+    url: normalizeUrl(source.url),
+    interval: Number.isFinite(interval)
+      ? Math.min(INTERVAL_MAX_S, Math.max(INTERVAL_MIN_S, Math.round(interval)))
+      : DEFAULT_CONFIG.interval,
+    language: LANGUAGES.includes(source.language) ? source.language : DEFAULT_CONFIG.language,
   };
+}
+
+/** The source address is set. */
+export const isConfigured = (config) => Boolean(config?.url);
+
+/**
+ * An address safe for the logs and the messages: no user name, no password,
+ * no query string (a token may hide there).
+ */
+export function safeUrl(value) {
+  try {
+    const url = new URL(value);
+    return `${url.protocol}//${url.host}${url.pathname === '/' ? '' : url.pathname}`;
+  } catch {
+    return '(invalid address)';
+  }
 }
