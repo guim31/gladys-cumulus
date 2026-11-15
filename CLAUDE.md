@@ -268,8 +268,12 @@ du 15/11 : rien n'a été vérifié contre un Cumulus MX en marche.
   `rc` doit être **le premier** paramètre (`ApiTagProcessor`), sans `=y`. Réponse : objet de
   chaînes **non échappées** (une `"` dans le nom de la station casse `JSON.parse` : lecture tolérante
   dans `parseTagJson`, `location` demandé en dernier). 503 tant que la station n'est pas démarrée.
-  Aucune date de mesure : la réponse est datée à l'arrivée ; `DataStopped=1` dit que la station
-  n'envoie plus rien (valeurs alors ignorées). `/api/data/currentdata` (tableau de bord) existe
+  Aucune date de mesure : la réponse est datée à l'arrivée, et `LastDataReadT` (date localisée,
+  prise telle quelle) sert de tampon : inchangé, pas de nouvelle mesure (Cumulus figé). `DataStopped`
+  est l'alarme « données arrêtées », **verrouillée une heure par défaut** après le retour des données
+  (`DataStoppedAlarmLatch`, relevé par la relecture du 15/11) et toujours à 0 si l'alarme est
+  désactivée : un simple indice, qu'une nouvelle mesure emporte. `presstrendval` vaut 0 les 3
+  premières heures : un 0 ne crée pas la fonctionnalité. clientraw.txt : -100 = capteur absent. `/api/data/currentdata` (tableau de bord) existe
   aussi, mais c'est un format interne, sans unité de date : écarté.
 - Unités : `tempunitnodeg` (`C`/`F`), `windunit` (`m/s`, `mph`, `km/h`, `kts`), `pressunit`
   (`mb`, `hPa`, `in`, `kPa`), `rainunit` (`mm`, `in`). `presstrendval` est une variation **par

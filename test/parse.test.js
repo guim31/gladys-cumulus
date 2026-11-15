@@ -52,6 +52,7 @@ test('API: an unescaped quote in the station name does not lose the answer', () 
 test('API: metric answer', () => {
   const reading = parseApiTags(parseTagJson(FIXTURES.apiMetric));
   assert.equal(reading.time, null);
+  assert.equal(reading.stamp, '15/11/2026 12:30:05');
   assert.equal(reading.stationName, 'Station "Les Pins"');
   assert.equal(reading.software, 'Cumulus MX 4.6.0 b4107');
   assert.equal(reading.temperature, 9.8);
@@ -111,7 +112,13 @@ test('realtime.txt of Cumulus MX: values, local date, zeros of absent sensors', 
   assert.equal(reading.rainToday, 3.2);
   assert.equal(reading.feelsLike, 7.5);
   assert.equal(reading.contactLost, false);
-  assert.deepEqual(reading.maybeAbsent, ['indoorTemperature', 'indoorHumidity', 'uv', 'radiation']);
+  assert.deepEqual(reading.maybeAbsent, [
+    'indoorTemperature',
+    'indoorHumidity',
+    'uv',
+    'radiation',
+    'pressureTrend',
+  ]);
 });
 
 test('realtime.txt of the Cumulus wiki: mph, mb, and a lost sensor contact', () => {
@@ -150,4 +157,7 @@ test('clientraw.txt of Weather Display: knots, mm per minute, name and date', ()
   assert.equal(parseClientraw(wet).rainRate, 3);
   assert.equal(parseClientraw(wet).raining, true);
   assert.equal(parseClientraw(FIXTURES.realtimeMx), null);
+  // -100: a sensor Weather Display does not have.
+  const noIndoor = FIXTURES.clientraw.replace(/^((?:\S+ ){12})22\.0/, '$1-100.0');
+  assert.equal(parseClientraw(noIndoor).indoorTemperature, null);
 });

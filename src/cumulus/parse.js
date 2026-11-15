@@ -4,8 +4,9 @@
 //   - Cumulus MX API: `GET /api/tags/process.json?rc&temp&hum…` on the
 //     interface port of Cumulus MX (8998). It answers the named web tags as a
 //     JSON object of strings (Api.cs, ApiTagProcessor.cs). `rc` first asks for
-//     plain numbers (no thousands separator, a dot for the decimals). It
-//     carries no measurement date: the reading is live, dated on arrival.
+//     plain numbers (no thousands separator, a dot for the decimals). The
+//     reading is dated on arrival; `LastDataReadT` (a localized date, used as
+//     is) changes whenever Cumulus MX read its station.
 //   - realtime.txt: one line of space-separated fields written by Cumulus 1
 //     and Cumulus MX (format on the Cumulus wiki, CreateRealtimeFileString in
 //     Cumulus.cs). Date dd/mm/yy (the separator follows the Windows locale),
@@ -49,6 +50,8 @@ export const API_TAGS = [
   'SolarRad',
   'LowBatteryList',
   'DataStopped',
+  // When Cumulus MX last read its station: changes at every new reading.
+  'LastDataReadT',
   'tempunitnodeg',
   'windunit',
   'pressunit',
@@ -137,6 +140,10 @@ export function parseApiTags(tags) {
   const version = [tags.version, tags.build].filter((part) => part && part !== '-').join(' b');
   return {
     ...EMPTY,
+    stamp:
+      typeof tags.LastDataReadT === 'string' && tags.LastDataReadT.trim() !== ''
+        ? tags.LastDataReadT.trim()
+        : null,
     stationName: name || null,
     software: version ? `Cumulus MX ${version}` : 'Cumulus MX',
     temperature: t('temp'),
@@ -158,7 +165,11 @@ export function parseApiTags(tags) {
     uv: positive(toNumber(tags.UV)),
     radiation: positive(toNumber(tags.SolarRad)),
     batteryLow: lowBattery === null ? null : lowBattery !== '',
+    // The "data stopped" alarm of Cumulus MX: latched (an hour by default)
+    // after the data is back, so only a hint (see the hub).
     stopped: tags.DataStopped === '1',
+    // presstrendval is 0 until Cumulus has 3 hours of data.
+    maybeAbsent: ['pressureTrend'],
   };
 }
 
@@ -234,9 +245,12 @@ export function parseRealtime(text) {
     // The console lost its outdoor sensors: values kept, station unreachable.
     contactLost: fields[50] === '1',
     feelsLike: fields.length >= 59 ? t(59) : null,
-    maybeAbsent: ['indoorTemperature', 'indoorHumidity', 'uv', 'radiation'],
+    maybeAbsent: ['indoorTemperature', 'indoorHumidity', 'uv', 'radiation', 'pressureTrend'],
   };
 }
+
+// Weather Display writes -100 (or below) for a sensor it does not have.
+const sensor = (value) => (value !== null && value > -99 ? value : null);
 
 /**
  * A reading of clientraw.txt.
@@ -272,15 +286,15 @@ export function parseClientraw(text) {
     windSpeed: knots(1),
     windGust: knots(2),
     windDirection: degrees(f(3)),
-    temperature: f(4),
+    temperature: sensor(f(4)),
     humidity: percent(f(5)),
-    pressure: f(6),
+    pressure: positive(f(6)),
     rainToday: positive(f(7)),
     rainRate: rate === null ? null : rate * 60,
     raining: rate === null ? null : rate > 0,
-    indoorTemperature: f(12),
+    indoorTemperature: sensor(f(12)),
     indoorHumidity: percent(f(13)),
-    dewPoint: f(72),
+    dewPoint: sensor(f(72)),
     uv: positive(f(79)),
     radiation: fields.length > 127 ? positive(f(127)) : null,
     maybeAbsent: ['indoorTemperature', 'indoorHumidity', 'uv', 'radiation'],

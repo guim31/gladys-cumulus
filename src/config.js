@@ -47,7 +47,9 @@ export function normalizeUrl(value) {
  */
 export function normalizeConfig(raw = {}) {
   const source = raw ?? {};
-  const interval = Number(source.interval);
+  // A blank field is no value (Number('') is 0).
+  const interval =
+    source.interval === '' || source.interval === null ? NaN : Number(source.interval);
   return {
     source: Object.values(SOURCES).includes(source.source) ? source.source : DEFAULT_CONFIG.source,
     url: normalizeUrl(source.url),

@@ -124,7 +124,12 @@ test('states: everything when the station is added, then only changes, read by t
 test('Cumulus MX says its station stopped: unreachable, with a message, then back', async (t) => {
   const world = await apiWorld(t);
   await addStation(world);
-  world.server.files[API_URL] = apiAnswer({ DataStopped: '1', temp: '-40' });
+  // Cumulus MX did not read its station since: same LastDataReadT.
+  world.server.files[API_URL] = apiAnswer({
+    DataStopped: '1',
+    temp: '-40',
+    LastDataReadT: '15/11/2026 12:30:05',
+  });
   await world.advance(30 * SECOND);
   await world.advance(15 * SECOND);
   const last = (key) => world.gladys.fake.lastState(featureId(world.gladys, key));
@@ -135,12 +140,22 @@ test('Cumulus MX says its station stopped: unreachable, with a message, then bac
   assert.equal(status.connected, false);
   assert.match(status.message.fr, /n’envoie plus/);
 
-  world.server.files[API_URL] = apiAnswer({ temp: '11' });
+  // Data back, the alarm still latched: the new reading wins.
+  world.server.files[API_URL] = apiAnswer({ DataStopped: '1', temp: '11' });
   await world.advance(30 * SECOND);
   await world.advance(15 * SECOND);
   assert.equal(last('reachable'), 1);
   assert.equal(last('temperature'), 11);
   assert.equal(world.gladys.fake.connectionStatus.connected, true);
+});
+
+test('Cumulus MX frozen (same LastDataReadT): the measurement ages', async (t) => {
+  const world = await apiWorld(t);
+  await addStation(world);
+  await world.advance(16 * MINUTE);
+  const last = (key) => world.gladys.fake.lastState(featureId(world.gladys, key));
+  assert.equal(last('data_age'), 16);
+  assert.equal(last('reachable'), 0);
 });
 
 test('Cumulus MX down: a status in every language, the station unreachable', async (t) => {

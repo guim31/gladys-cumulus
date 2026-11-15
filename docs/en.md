@@ -6,7 +6,7 @@ temperature, humidity, pressure and its trend, wind, rain, UV, solar radiation a
 software measures them.
 
 > Developed without the hardware: feedback welcome. The integration follows the source code of
-> Cumulus MX (build 4107 era), the realtime.txt documentation of the Cumulus wiki and a real
+> Cumulus MX (build 5026), the realtime.txt documentation of the Cumulus wiki and a real
 > clientraw.txt of a Weather Display station online, but it has not been tried yet with a real
 > Cumulus MX. Your feedback is welcome on the GitHub repository.
 

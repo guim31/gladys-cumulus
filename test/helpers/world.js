@@ -33,10 +33,17 @@ export const CLIENTRAW_URL = 'http://meteo.example/clientraw.txt';
 // 15/11/2026 12:30:05 local time: the date of realtime-mx.txt.
 export const REALTIME_TIME_MS = new Date(2026, 10, 15, 12, 30, 5).getTime();
 
-/** The API answer with some tags changed. */
+let readCount = 0;
+
+/**
+ * The API answer with some tags changed: a new reading of the station
+ * (LastDataReadT changed) unless LastDataReadT is given.
+ */
 export function apiAnswer(values = {}, base = FIXTURES.apiMetric) {
   let body = base;
-  for (const [key, value] of Object.entries(values)) {
+  readCount += 1;
+  const all = { LastDataReadT: `15/11/2026 12:30:05 #${readCount}`, ...values };
+  for (const [key, value] of Object.entries(all)) {
     body = body.replace(new RegExp(`"${key}":"[^"]*"`), `"${key}":"${value}"`);
   }
   return body;

@@ -21,6 +21,8 @@ test('the source, the interval and the language are bounded', () => {
   assert.equal(normalizeConfig({ interval: '5' }).interval, 10);
   assert.equal(normalizeConfig({ interval: 99999 }).interval, 3600);
   assert.equal(normalizeConfig({ interval: 'abc' }).interval, 30);
+  assert.equal(normalizeConfig({ interval: '' }).interval, 30);
+  assert.equal(normalizeConfig({ interval: null }).interval, 30);
   assert.equal(normalizeConfig({ language: 'it' }).language, 'fr');
   assert.equal(normalizeConfig({ language: 'de' }).language, 'de');
 });

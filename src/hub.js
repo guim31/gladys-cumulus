@@ -212,22 +212,20 @@ export class CumulusHub {
     if (reading.stationName) {
       this.stationName = reading.stationName;
     }
-    const wasStopped = this.stopped;
-    this.stopped = reading.stopped;
-    if (reading.stopped) {
-      if (!wasStopped) {
-        logger.warn(`${this.software ?? 'Cumulus'} says the station stopped sending data`);
-      }
-      this.schedulePublish();
-      return false;
-    }
-    if (wasStopped) {
-      logger.info('The station sends data again');
-    }
-    // The API is live; a file is new when its date changed.
+    // A file is new when its date changed, the API when Cumulus MX read its
+    // station again (no date: every answer is new).
     const isNew = reading.stamp === null || reading.stamp !== this.stamp;
     this.stamp = reading.stamp;
-    if (!isNew) {
+    // Cumulus MX keeps its "data stopped" alarm latched for a while after the
+    // data is back: a new reading wins over it.
+    const wasStopped = this.stopped;
+    this.stopped = reading.stopped && (reading.stamp === null || !isNew);
+    if (this.stopped && !wasStopped) {
+      logger.warn(`${this.software ?? 'Cumulus'} says the station stopped sending data`);
+    } else if (!this.stopped && wasStopped) {
+      logger.info('The station sends data again');
+    }
+    if (this.stopped || !isNew) {
       this.schedulePublish();
       return false;
     }
