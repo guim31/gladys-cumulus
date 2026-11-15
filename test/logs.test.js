@@ -52,7 +52,11 @@ test('a normal cycle writes nothing at info level', async (t) => {
     await tick(t, 10 * SECOND);
   }
   await tick(t, 2 * MINUTE);
-  assert.deepEqual(lines, []);
+  // Log lines only (Node 22 also prints an ExperimentalWarning for MockTimers).
+  assert.deepEqual(
+    lines.filter((line) => /\[(INFO|WARN|ERROR)\]/.test(line)),
+    [],
+  );
 });
 
 test('a failure is told once, its end once, the rest goes to debug', async (t) => {
