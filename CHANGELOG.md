@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-15
+
 ### Added
 
 - Your weather station in Gladys through Cumulus MX (its API on port 8998),
@@ -24,3 +26,6 @@ the notes of the version's GitHub Release.
 - Dashboard widget: the current conditions of the station.
 - "Check the source" action in the configuration.
 - English, French, German and Spanish everywhere.
+
+[Unreleased]: https://github.com/guim31/gladys-cumulus/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/guim31/gladys-cumulus/releases/tag/v1.0.0
