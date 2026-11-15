@@ -275,6 +275,9 @@ test('clientraw.txt: Weather Display station, named after its file', async (t) =
   assert.ok(!keysOf(device).includes('uv'));
   await addStation(world);
   assert.equal(world.gladys.fake.lastState(featureId(world.gladys, 'temperature')), -5.8);
+  // No state for a feature the device does not have (UV and solar at 0).
+  const ids = new Set(device.features.map((f) => f.external_id));
+  assert.ok(world.gladys.fake.states.every((s) => ids.has(s.device_feature_external_id)));
   assert.equal(world.gladys.fake.lastState(featureId(world.gladys, 'reachable')), 1);
 });
 

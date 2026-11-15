@@ -384,11 +384,17 @@ export class CumulusHub {
 
   /** Publish the changed states now (the device just added: everything). */
   async publish() {
-    if (!this.addedDevice() || this.reading === null) {
+    const device = this.addedDevice();
+    if (!device || this.reading === null) {
       return;
     }
     this.lastPublishAt = this.now();
-    const states = buildStates(this.gladys, this.data());
+    // Only the features of the device as added: the core drops the others
+    // (a 0 of an absent sensor, a feature seen since but not updated yet).
+    const added = new Set(
+      (device.features ?? []).map((feature) => featureKeyOf(this.gladys, feature.external_id)),
+    );
+    const states = buildStates(this.gladys, this.data(), (key) => added.has(key));
     if (states.length === 0) {
       return;
     }
